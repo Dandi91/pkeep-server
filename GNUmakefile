@@ -1,35 +1,33 @@
 # User-defined section (flags, compiler, include paths, libraries)
-override CXXFLAGS += -Wall -std=gnu++11
+CXXFLAGS = -Wall -std=gnu++11
 CXX = g++
 INC = inc /usr/include/cryptopp
 LIB = cryptopp
-BINNAME = pkeep-server
+BIN = pkeep-server
+WXTOOLKIT = base
+WXVERSION = 3.0
 
 # Builds
 ifneq ($(STATIC),yes)
-WXSTATIC = --static=no
-else
-WXSTATIC = --static=yes
+override STATIC = no
 endif
 
 ifneq ($(BUILD),debug)
-BUILD = release
-override CXXFLAGS := $(CXXFLAGS) -O2
+override BUILD = release
+CXXFLAGS := $(CXXFLAGS) -O2
 LDFLAGS = -s
-WXBUILD = --debug=no
+WXDEBUG = no
 else
-override CXXFLAGS := $(CXXFLAGS) -g
-WXBUILD = --debug=yes
+CXXFLAGS := $(CXXFLAGS) -g
+WXDEBUG = yes
 endif
 
 # Paths
 OBJPATH = obj/$(BUILD)
 BINPATH = bin/$(BUILD)
-$(shell mkdir -p $(OBJPATH))
-$(shell mkdir -p $(BINPATH))
 
 # wx-config output
-WXCONFIG = wx-config --version=3.0 --toolkit=base $(WXSTATIC) --unicode=yes $(WXBUILD)
+WXCONFIG = wx-config --version=$(WXVERSION) --toolkit=$(WXTOOLKIT) --static=$(STATIC) --unicode=yes --debug=$(WXDEBUG)
 WXFLAGS = $(shell $(WXCONFIG) --cflags)
 WXLIBS = $(shell $(WXCONFIG) --libs)
 
@@ -41,7 +39,7 @@ LIB := $(patsubst %,-l%,$(LIB))
 
 vpath %.cpp src
 vpath %.o $(OBJPATH)
-vpath $(BINNAME) $(BINPATH)
+vpath $(BIN) $(BINPATH)
 
 # Sources from
 SRCS = $(patsubst src/%,%,$(wildcard src/*.cpp))
@@ -50,22 +48,27 @@ SRCS = $(patsubst src/%,%,$(wildcard src/*.cpp))
 OBJS = $(SRCS:.cpp=.o)
 OBJRES = $(patsubst %,$(OBJPATH)/%,$(OBJS))
 
-.PHONY: all clean install remove
+.PHONY: all clean delhist install remove
 
-all: $(BINNAME)
+all: $(BIN)
 
 install:
-	cp -f bin/release/$(BINNAME) /usr/local/bin/
+	cp -f $(BINPATH)/$(BIN) /usr/local/bin/
 
 remove:
-	rm /usr/local/bin/$(BINNAME)
+	rm /usr/local/bin/$(BIN)
+
+delhist:
+	find -type f -name *~* -exec rm -i {} \;
 
 clean:
-	rm -rf obj bin
+	rm -rf $(BINPATH) $(OBJPATH)
 
-$(BINNAME): $(OBJS)
-	$(CXX) -o $(BINPATH)/$(BINNAME) $(OBJRES) $(LDFLAGS) $(WXLIBS) $(LIB)
+$(OBJPATH) $(BINPATH):
+	mkdir -p $@
+
+$(BIN) : $(OBJPATH) $(BINPATH) $(OBJS)
+	$(CXX) -o $(BINPATH)/$(BIN) $(OBJRES) $(LDFLAGS) $(WXLIBS) $(LIB)
 
 %.o : %.cpp
 	$(CXX) $(CXXFLAGS) $(WXFLAGS) $(INC) -c $< -o $(OBJPATH)/$@
-
